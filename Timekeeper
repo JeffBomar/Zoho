@@ -1,0 +1,148 @@
+orgId = 664576196;
+eventTime = "";
+getTicketInfo = zoho.desk.getRecordById(orgId,"tickets",TicketID);
+// if(getTicketInfo.get(cf).get("cf_due_date_user") == "" || getTicketInfo.get("cf").get("cf_due_date_user") == null){
+getTicketHistory = invokeurl
+[
+	url :"https://desk.zoho.com/api/v1/tickets/" + TicketID + "/history?limit=99&from=0"
+	type :GET
+	connection:"deskoperation"
+];
+//info getTicketHistory;
+ticketHistory = getTicketHistory.toList();
+info ticketHistory;
+currentOwner = "";
+AgentName = "";
+for each  history in ticketHistory
+{
+	if(history.get("name").toString().equalsIgnoreCase("Ticket_Updated"))
+	{
+		historychanges = history.get("changes");
+		eventTime = history.get("eventTime");
+		for each  hchanges in historychanges
+		{
+			if(hchanges.get("field").toString().equalsIgnoreCase("Case Owner") && hchanges.toMap().containKey("newValue"))
+			{
+				currentOwner = hchanges.get("newValue");
+				break;
+			}
+		}
+		info currentOwner;
+	}
+	if(history.get("name").toString().equalsIgnoreCase("BlueprintDuringTransition_Updated_Ticket"))
+	{
+		eventTime = history.get("eventTime");
+		historychanges = history.get("changes");
+		for each  hchanges in historychanges
+		{
+			if(hchanges.get("field").toString().equalsIgnoreCase("Case Owner") && hchanges.containKey("newValue"))
+			{
+				currentOwner = hchanges.get("newValue");
+				break;
+			}
+		}
+		info currentOwner;
+	}
+	if(history.get("name").toString().equalsIgnoreCase("Workflow_Updated_Ticket"))
+	{
+		eventTime = history.get("eventTime");
+		historychanges = history.get("changes");
+		for each  hchanges in historychanges
+		{
+			info hchanges;
+			if(hchanges.get("field").toString().equalsIgnoreCase("Case Owner") && hchanges.toMap().containKey("newValue"))
+			{
+				currentOwner = hchanges.get("newValue");
+				break;
+			}
+		}
+		info currentOwner;
+	}
+	if(history.get("name").toString().equalsIgnoreCase("RoundRobin_Updated_Ticket"))
+	{
+		eventTime = history.get("eventTime");
+		historychanges = history.get("changes");
+		for each  hchanges in historychanges
+		{
+			if(hchanges.get("field").toString().equalsIgnoreCase("Case Owner") && hchanges.toMap().containKey("newValue"))
+			{
+				currentOwner = hchanges.get("newValue");
+				break;
+			}
+		}
+		info currentOwner;
+	}
+	if(history.get("name").toString().equalsIgnoreCase("Assignrule_Updated_Ticket"))
+	{
+		eventTime = history.get("eventTime");
+		historychanges = history.get("changes");
+		for each  hchanges in historychanges
+		{
+			if(hchanges.get("field").toString().equalsIgnoreCase("Case Owner") && hchanges.toMap().containKey("newValue"))
+			{
+				currentOwner = hchanges.get("newValue");
+				break;
+			}
+		}
+		info currentOwner;
+	}
+	if(currentOwner != "" && currentOwner != null)
+	{
+		break;
+	}
+}
+info eventTime;
+if(eventTime != "")
+{
+	info "pass";
+	param = Map();
+	assignedTime = eventTime.toTime("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+	info assignedTime;
+	//.toString("dd-MMM-yyyy HH:mm:ss")
+	createdTime = getTicketInfo.get("createdTime").toTime("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+	info createdTime;
+	differceCT = createdTime.toDateTime().timeBetween(assignedTime.toDateTime());
+	info "Result Created Time:" + differceCT;
+	param.put("cf_created_time_difference",differceCT);
+	//CreatedTime Difference Custom Field API name
+	if(getTicketInfo.get("closedTime") != "" && getTicketInfo.get("closedTime") != null)
+	{
+		closedTime = getTicketInfo.get("closedTime").toTime("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+		info closedTime;
+		differceCL = assignedTime.toDateTime().timeBetween(closedTime.toDateTime());
+		info "Result Closed Time:" + differceCL;
+		param.put("cf_closed_time_difference",differceCL);
+		//Closed Difference Custom Field API name
+		differceCr = createdTime.toDateTime().timeBetween(closedTime.toDateTime());
+		info "Result Created Time to Closed Time:" + differceCr;
+		param.put("cf_created_time_difference",differceCr);
+		//createdTimetoClosed Time custom field API name
+	}
+	param.put("cf_first_assigned_time",eventTime);
+	//Assignment time Custom Field API name
+	updateTicket = zoho.desk.update(orgId,"tickets",TicketID,{"cf":param});
+	info updateTicket;
+}
+else
+{
+	param = Map();
+	if(getTicketInfo.get("closedTime") != "" && getTicketInfo.get("closedTime") != null)
+	{
+		closedTime = getTicketInfo.get("closedTime").toTime("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+		info closedTime;
+		firstAssignedTime = getTicketInfo.get("cf").get("cf_first_assigned_time").toTime("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+		info firstAssignedTime;
+		createdTime = getTicketInfo.get("createdTime").toTime("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+		info createdTime;
+		differceCL = firstAssignedTime.toDateTime().timeBetween(closedTime.toDateTime());
+		info "Result First assign time to Closed Time:" + differceCL;
+		differceCr = createdTime.toDateTime().timeBetween(closedTime.toDateTime());
+		info "Result Created Time to Closed Time:" + differceCr;
+		param.put("cf_created_time_difference",differceCr);
+		//createdTimetoClosed Time custom field API name
+		param.put("cf_closed_time_difference",differceCL);
+		//Closed Difference Custom Field API name
+		updateTicket = zoho.desk.update(orgId,"tickets",TicketID,{"cf":param});
+		info updateTicket;
+	}
+}
